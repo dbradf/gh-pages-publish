@@ -6,7 +6,8 @@ use std::{
 
 use anyhow::Result;
 use clap::Parser;
-use cmd_lib::{run_fun, run_cmd};
+use cmd_lib::{run_cmd, run_fun};
+use tracing::{event, Level};
 use which::which;
 
 /// Publish documentation to github pages.
@@ -25,6 +26,9 @@ struct Args {
     /// Location of base of repository to publish to.
     #[clap(long, parse(from_os_str), default_value = ".")]
     repo_base: PathBuf,
+    /// Enable verbose logging.
+    #[clap(long)]
+    verbose: bool,
 }
 
 fn main() {
@@ -34,6 +38,10 @@ fn main() {
         eprintln!("ERROR: Could not find 'git' binary.");
         eprintln!("Please ensure 'git' is available in your PATH or provide it via --git-binary");
         exit(1);
+    }
+
+    if args.verbose {
+        tracing_subscriber::fmt::init();
     }
 
     let git_service = GitService {
@@ -141,6 +149,14 @@ impl GitService {
 fn run(git_service: &GitService, target_branch: &str, build_dir: &Path) -> Result<()> {
     let active_branch = git_service.active_branch()?;
     let result = publish_branch(git_service, target_branch, build_dir);
+    if result.is_err() {
+        event!(
+            Level::WARN,
+            "Encountered error during execution: {:?}",
+            err = result
+        );
+    }
+    event!(Level::INFO, "Switching back to previously active branch");
     git_service.switch_branch(&active_branch)?;
 
     result
@@ -148,11 +164,14 @@ fn run(git_service: &GitService, target_branch: &str, build_dir: &Path) -> Resul
 
 fn publish_branch(git_service: &GitService, target_branch: &str, build_dir: &Path) -> Result<()> {
     // get commit-data
+    event!(Level::INFO, "Details details about last commit");
     let last_commit = git_service.get_last_commit()?;
     // switch branch
+    event!(Level::INFO, "Switching to target branch");
     git_service.switch_branch(target_branch)?;
 
     // move docs to root
+    event!(Level::INFO, "Moving files to repo root");
     let target = PathBuf::from(".").canonicalize()?;
     let files = fs::read_dir(build_dir)?;
     for entry in files {
@@ -173,12 +192,16 @@ fn publish_branch(git_service: &GitService, target_branch: &str, build_dir: &Pat
         fs::rename(path, target_path)?;
     }
     // if any changes
+    event!(Level::INFO, "Checking if any changes exist");
     if git_service.changes_exist()? {
         //   create commit
+        event!(Level::INFO, "Adding changed files to git");
         git_service.add(".")?;
+        event!(Level::INFO, "Committing changed files to git");
         git_service.commit(&last_commit)?;
 
         //   push branch
+        event!(Level::INFO, "Publishing branch to origin");
         git_service.push_branch(target_branch, &last_commit)?;
     }
 
