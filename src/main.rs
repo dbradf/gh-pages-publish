@@ -1,4 +1,8 @@
-use std::{fs, path::PathBuf, process::exit};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    process::exit,
+};
 
 use anyhow::Result;
 use clap::Parser;
@@ -33,7 +37,7 @@ fn main() {
     }
 
     let git_service = GitService {
-        git_binary: args.git_binary.unwrap_or(default_git.unwrap()),
+        git_binary: args.git_binary.unwrap_or_else(|| default_git.unwrap()),
     };
     std::env::set_current_dir(&args.repo_base).unwrap();
     if let Err(err) = run(&git_service, &args.target_branch, &args.docs_dir) {
@@ -99,7 +103,7 @@ impl GitService {
             ${git_binary} status --short
         )?;
 
-        Ok(output.trim().len() > 0)
+        Ok(!output.trim().is_empty())
     }
 
     pub fn add(&self, filespec: &str) -> Result<()> {
@@ -128,7 +132,7 @@ impl GitService {
     }
 }
 
-fn run(git_service: &GitService, target_branch: &str, build_dir: &PathBuf) -> Result<()> {
+fn run(git_service: &GitService, target_branch: &str, build_dir: &Path) -> Result<()> {
     let active_branch = git_service.active_branch()?;
     let result = publish_branch(git_service, target_branch, build_dir);
     git_service.switch_branch(&active_branch)?;
@@ -136,7 +140,7 @@ fn run(git_service: &GitService, target_branch: &str, build_dir: &PathBuf) -> Re
     result
 }
 
-fn publish_branch(git_service: &GitService, target_branch: &str, build_dir: &PathBuf) -> Result<()> {
+fn publish_branch(git_service: &GitService, target_branch: &str, build_dir: &Path) -> Result<()> {
     // get commit-data
     let last_commit = git_service.get_last_commit()?;
     // switch branch
@@ -169,7 +173,7 @@ fn publish_branch(git_service: &GitService, target_branch: &str, build_dir: &Pat
         git_service.commit(&last_commit.message, &last_commit.author_string())?;
 
         //   push branch
-        git_service.push_branch(&target_branch)?;
+        git_service.push_branch(target_branch)?;
     }
 
     Ok(())
