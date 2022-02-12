@@ -81,7 +81,7 @@ impl GitService {
 
     pub fn get_last_commit(&self) -> Result<CommitMetaData> {
         let git_binary = &self.git_binary;
-        let format = r"%an:%ae:$s";
+        let format = r"%an:%ae:%s";
         let output = run_fun!(
             ${git_binary} log -n 1 --pretty=format:"${format}"
         )?;
