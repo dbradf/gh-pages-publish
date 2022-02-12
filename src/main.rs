@@ -114,10 +114,14 @@ impl GitService {
         Ok(())
     }
 
-    pub fn commit(&self, message: &str, author: &str) -> Result<()> {
+    pub fn commit(&self, commit_metadata: &CommitMetaData) -> Result<()> {
         let git_binary = &self.git_binary;
+        let user = &commit_metadata.author;
+        let email = &commit_metadata.email;
+        let message = &commit_metadata.message;
+        let author = &commit_metadata.author_string();
         run_fun!(
-            ${git_binary} commit -m "${message}" --author="${author}"
+            ${git_binary} -c user.name="${user}" -c user.email="${email}" commit --message "${message}" --author "${author}"
         )?;
         Ok(())
     }
@@ -170,7 +174,7 @@ fn publish_branch(git_service: &GitService, target_branch: &str, build_dir: &Pat
     if git_service.changes_exist()? {
         //   create commit
         git_service.add(".")?;
-        git_service.commit(&last_commit.message, &last_commit.author_string())?;
+        git_service.commit(&last_commit)?;
 
         //   push branch
         git_service.push_branch(target_branch)?;
