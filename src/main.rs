@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::Result;
 use clap::Parser;
-use cmd_lib::run_fun;
+use cmd_lib::{run_fun, run_cmd};
 use which::which;
 
 /// Publish documentation to github pages.
@@ -120,16 +120,18 @@ impl GitService {
         let email = &commit_metadata.email;
         let message = &commit_metadata.message;
         let author = &commit_metadata.author_string();
-        run_fun!(
-            ${git_binary} -c user.name="${user}" -c user.email="${email}" commit --message "${message}" --author "${author}"
+        run_cmd!(
+            ${git_binary} -c user.name="${user}" -c user.email="${email}" commit -m "${message}" --author "${author}"
         )?;
         Ok(())
     }
 
-    pub fn push_branch(&self, branch: &str) -> Result<()> {
+    pub fn push_branch(&self, branch: &str, commit_metadata: &CommitMetaData) -> Result<()> {
         let git_binary = &self.git_binary;
+        let user = &commit_metadata.author;
+        let email = &commit_metadata.email;
         run_fun!(
-            ${git_binary} push origin ${branch}
+            ${git_binary} -c user.name="${user}" -c user.email="${email}" push origin ${branch}
         )?;
 
         Ok(())
@@ -177,7 +179,7 @@ fn publish_branch(git_service: &GitService, target_branch: &str, build_dir: &Pat
         git_service.commit(&last_commit)?;
 
         //   push branch
-        git_service.push_branch(target_branch)?;
+        git_service.push_branch(target_branch, &last_commit)?;
     }
 
     Ok(())
