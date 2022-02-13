@@ -2,6 +2,8 @@
 
 A tool to publish documentation to github pages.
 
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/dbradf/gh-pages-publish)](https://github.com/dbradf/gh-pages-publish/releases/latest)
+
 
 ## Usage
 
